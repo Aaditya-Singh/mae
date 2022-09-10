@@ -19,8 +19,11 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
-
-    root = os.path.join(args.data_path, 'train' if is_train else 'val')
+    # -- don't use suffix when dataset is imagenet-a/c/r/s
+    in_variants = {'-a', '-c', '-r', '-s'}
+    ood = any(var in args.data_path for var in in_variants)
+    suffix = '' if ood else 'train/' if is_train else 'val/'    
+    root = os.path.join(args.data_path, suffix)
     dataset = datasets.ImageFolder(root, transform=transform)
 
     print(dataset)
