@@ -240,7 +240,12 @@ def main(args):
         checkpoint = torch.load(args.finetune, map_location='cpu')
 
         print("Load pre-trained checkpoint from: %s" % args.finetune)
-        checkpoint_model = checkpoint['model']
+        if 'msn' in args.finetune:
+            checkpoint_model = {k.replace('module.', ''): v for k, v in checkpoint['target_encoder'].items()}
+        elif 'mae' in r_path or 'deit' in r_path:
+            checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint['model'].items()}
+        else:   # dino
+            checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint.items()}
         state_dict = model.state_dict()
         for k in ['head.weight', 'head.bias']:
             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:

@@ -1,3 +1,5 @@
 .vscode
 pretrained/
 **__pycache__
+logs/
+src/

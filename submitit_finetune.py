@@ -23,7 +23,7 @@ def parse_args():
     parser.add_argument("--nodes", default=2, type=int, help="Number of nodes to request")
     parser.add_argument("--timeout", default=4320, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
-
+    parser.add_argument('--gpu-type', type=str, default='rtx_6000', help='type of gpu to run jobs on')
     parser.add_argument("--partition", default="learnfair", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Request 32G V100 GPUs")
     parser.add_argument('--comment', default="", type=str, help="Comment to pass to scheduler")
@@ -32,8 +32,9 @@ def parse_args():
 
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
-    if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/{user}/experiments")
+    # TODO: need to add this path before submitit
+    if Path(f"/srv/share4/{user}/msn/logs/").is_dir():
+        p = Path(f"/srv/share4/{user}/msn/logs/submitit/")
         p.mkdir(exist_ok=True)
         return p
     raise RuntimeError("No shared folder available")
@@ -103,14 +104,14 @@ def main():
         kwargs['slurm_comment'] = args.comment
 
     executor.update_parameters(
-        mem_gb=40 * num_gpus_per_node,
+        nodes=nodes,
         gpus_per_node=num_gpus_per_node,
         tasks_per_node=num_gpus_per_node, # one task per GPU
-        cpus_per_task=10,
-        nodes=nodes,
+        cpus_per_task=5,
         timeout_min=timeout_min,
         # Below are cluster dependent parameters
         slurm_partition=partition,
+        slurm_constraint=args.gpu_type,
         slurm_signal_delay_s=120,
         **kwargs
     )
