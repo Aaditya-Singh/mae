@@ -17,8 +17,9 @@ from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 
-def build_dataset(is_train, args):
-    transform = build_transform(is_train, args)
+def build_dataset(is_train, args, transform=None):
+    if transform is None:
+        transform = build_transform(is_train, args)
     # -- don't use suffix when dataset is imagenet-a/c/r/s
     in_variants = {'-a', '-c', '-r', '-s'}
     ood = any(var in args.data_path for var in in_variants)

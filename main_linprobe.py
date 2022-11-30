@@ -22,9 +22,9 @@ import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+from util.datasets import build_dataset
 
 import timm
-
 assert timm.__version__ == "0.3.2" # version check
 from timm.models.layers import trunc_normal_
 
@@ -69,6 +69,8 @@ def get_args_parser():
     # * Finetuning params
     parser.add_argument('--finetune', default='',
                         help='finetune from checkpoint')
+    parser.add_argument('--freeze_params', action='store_true', default=False,
+                        help='freeze all parameters except last block, head, and norm')                        
     parser.add_argument('--global_pool', action='store_true')
     parser.set_defaults(global_pool=False)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
@@ -77,6 +79,8 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
+    parser.add_argument('--subset_file', type=str, default=None,
+                        help='subset file path (optional)')                        
     parser.add_argument('--nb_classes', default=1000, type=int,
                         help='number of the classification types')
 
@@ -139,8 +143,8 @@ def main(args):
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
-    dataset_val = datasets.ImageFolder(os.path.join(args.data_path, 'val'), transform=transform_val)
+    dataset_train = build_dataset(is_train=True, args=args, transform=transform_train)
+    dataset_val = build_dataset(is_train=False, args=args, transform=transform_val)
     print(dataset_train)
     print(dataset_val)
 
@@ -219,12 +223,23 @@ def main(args):
 
     # for linear prob only
     # hack: revise model's head with BN
-    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-    # freeze all but the head
-    for _, p in model.named_parameters():
-        p.requires_grad = False
-    for _, p in model.head.named_parameters():
-        p.requires_grad = True
+    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)    
+    if args.freeze_params:
+        # TODO: unfreeze last n blocks instead of all but last
+        for n, p in model.named_parameters():
+            grad_flag = False
+            if n.startswith('head') or n.startswith('fc'):
+                grad_flag = True
+            elif n.startswith('blocks'):
+                n_blk = int(n.split('.')[1])
+                grad_flag = True if n_blk == len(model.blocks) - 1 else False
+            p.requires_grad_(grad_flag)
+    else:
+        # freeze all but the head
+        for _, p in model.named_parameters():
+            p.requires_grad = False
+        for _, p in model.head.named_parameters():
+            p.requires_grad = True
 
     model.to(device)
 

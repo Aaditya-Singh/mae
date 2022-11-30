@@ -282,9 +282,9 @@ def main(args):
                 grad_flag = True
             elif n.startswith('blocks'):
                 n_blk = int(n.split('.')[1])
-                grad_flag = True if n_blk == len(model.blocks) - 1
+                grad_flag = True if n_blk == len(model.blocks) - 1 else False
             p.requires_grad_(grad_flag)
-            
+
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print("Model = %s" % str(model_without_ddp))
