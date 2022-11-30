@@ -111,6 +111,8 @@ def get_args_parser():
     # * Finetuning params
     parser.add_argument('--finetune', default='',
                         help='finetune from checkpoint')
+    parser.add_argument('--freeze_params', action='store_true', default=False,
+                        help='freeze all parameters except last block, head, and norm')
     parser.add_argument('--global_pool', action='store_true')
     parser.set_defaults(global_pool=True)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
@@ -119,6 +121,8 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
+    parser.add_argument('--subset_file', type=str, default=None,
+                        help='subset file path (optional)')
     parser.add_argument('--nb_classes', default=1000, type=int,
                         help='number of the classification types')
 
@@ -242,7 +246,7 @@ def main(args):
         print("Load pre-trained checkpoint from: %s" % args.finetune)
         if 'msn' in args.finetune:
             checkpoint_model = {k.replace('module.', ''): v for k, v in checkpoint['target_encoder'].items()}
-        elif 'mae' in r_path or 'deit' in r_path:
+        elif 'mae' in args.finetune or 'deit' in args.finetune:
             checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint['model'].items()}
         else:   # dino
             checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint.items()}
@@ -270,6 +274,17 @@ def main(args):
     model.to(device)
 
     model_without_ddp = model
+    if args.freeze_params:
+        # TODO: unfreeze last n blocks instead of all but last
+        for n, p in model.named_parameters():
+            grad_flag = False
+            if n.startswith('head') or n.startswith('fc'):
+                grad_flag = True
+            elif n.startswith('blocks'):
+                n_blk = int(n.split('.')[1])
+                grad_flag = True if n_blk == len(model.blocks) - 1
+            p.requires_grad_(grad_flag)
+            
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print("Model = %s" % str(model_without_ddp))

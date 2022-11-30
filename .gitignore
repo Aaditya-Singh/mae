@@ -3,3 +3,4 @@ pretrained/
 **__pycache__
 logs/
 src/
+output_dir/
