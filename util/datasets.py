@@ -12,7 +12,7 @@ import os
 import PIL
 
 from torchvision import datasets, transforms
-
+from util.data_manager import *
 from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
@@ -20,14 +20,16 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 def build_dataset(is_train, args, transform=None):
     if transform is None:
         transform = build_transform(is_train, args)
-    # -- don't use suffix when dataset is imagenet-a/c/r/s
-    in_variants = {'-a', '-c', '-r', '-s'}
-    ood = any(var in args.data_path for var in in_variants)
-    suffix = '' if ood else 'train/' if is_train else 'val/'    
-    root = os.path.join(args.data_path, suffix)
-    dataset = datasets.ImageFolder(root, transform=transform)
-    if args.subset_file is not None and is_train:
-        dataset = ImageNetSubset(dataset, args.subset_file)
+    # TODO: This assumes the path is of the format /../imagenet/
+    path_list = args.data_path.strip('/').split('/')
+    root = '/'.join(path_list[:-1])
+    root = '/' + root + '/'
+    folder = path_list[-1] + '/'
+    dataset = init_data(root_path=root, image_folder=folder, transform=transform, \
+        training=is_train, batch_size=args.batch_size, subset_file=args.subset_file)    
+    # dataset = ImageNet(root, image_folder, transform, is_train)
+    # if args.subset_file is not None and is_train:
+    #     dataset = ImageNetSubset(dataset, args.subset_file)
     print(dataset)
 
     return dataset
@@ -68,49 +70,3 @@ def build_transform(is_train, args):
     t.append(transforms.ToTensor())
     t.append(transforms.Normalize(mean, std))
     return transforms.Compose(t)
-
-
-class ImageNetSubset(object):
-
-    def __init__(self, dataset, subset_file):
-        """
-        ImageNetSubset
-        :param dataset: ImageNet dataset object
-        :param subset_file: '.txt' file containing IDs of IN1K images to keep
-        """
-        self.dataset = dataset
-        self.subset_file = subset_file
-        self.filter_dataset_(subset_file)
-
-    def filter_dataset_(self, subset_file):
-        """ Filter self.dataset to a subset """
-        root = self.dataset.root
-        class_to_idx = self.dataset.class_to_idx
-        # -- update samples to subset of IN1k targets/samples
-        new_samples = []
-        print(f'Using {subset_file}')
-        with open(subset_file, 'r') as rfile:
-            for line in rfile:
-                class_name = line.split('_')[0]
-                target = class_to_idx[class_name]
-                img = line.split('\n')[0]
-                new_samples.append(
-                    (os.path.join(root, class_name, img), target)
-                )
-        self.samples = new_samples
-
-    @property
-    def classes(self):
-        return self.dataset.classes
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, index):
-        path, target = self.samples[index]
-        img = self.dataset.loader(path)
-        if self.dataset.transform is not None:
-            img = self.dataset.transform(img)
-        if self.dataset.target_transform is not None:
-            target = self.dataset.target_transform(target)
-        return img, target
