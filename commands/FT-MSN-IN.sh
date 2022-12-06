@@ -8,7 +8,7 @@ Type=ft
 python submitit_finetune.py \
     --dist_eval --partition long --gpu-type a40 \
     --nodes 1 --ngpus 4 \
-    --model deit_base \
+    --model deit_base --cls_token \
     --finetune pretrained/msn/vitb16_600ep.pth.tar \
     --epochs 100 --batch_size 32 --accum_iter 8 \
     --blr 5e-4 --layer_decay 0.65 \
