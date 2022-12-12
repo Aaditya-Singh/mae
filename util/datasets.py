@@ -22,16 +22,14 @@ def build_dataset(is_train, args, transform=None):
         transform = build_transform(is_train, args)
     # TODO: This assumes the path is of the format /../imagenet/
     path_list = args.data_path.strip('/').split('/')
-    root = '/'.join(path_list[:-1])
+    root = '/'.join(path_list[:-1]) if 'objectnet-1.0' not in path_list else \
+        '/'.join(path_list[:-2])
     root = '/' + root + '/'
-    folder = path_list[-1] + '/'
+    folder = path_list[-1] + '/' if 'objectnet-1.0' not in path_list else \
+        '/'.join(path_list[-2:]) + '/'
     dataset = init_data(root_path=root, image_folder=folder, transform=transform, \
-        training=is_train, batch_size=args.batch_size, subset_file=args.subset_file)    
-    # dataset = ImageNet(root, image_folder, transform, is_train)
-    # if args.subset_file is not None and is_train:
-    #     dataset = ImageNetSubset(dataset, args.subset_file)
+        training=is_train, batch_size=args.batch_size, subset_file=args.subset_file)
     print(dataset)
-
     return dataset
 
 

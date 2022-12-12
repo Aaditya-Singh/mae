@@ -114,6 +114,9 @@ def evaluate(data_loader, model, device):
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
+            projection_fn = data_loader.projection_fn
+            if projection_fn is not None:
+                output = projection_fn(output, device)
             loss = criterion(output, target)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))

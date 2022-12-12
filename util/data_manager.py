@@ -57,6 +57,7 @@ def init_data(
             transform=transform, train=training)
         if subset_file is not None and training:
             dataset = ImageNetSubset(dataset, subset_file)
+    dataset.projection_fn = projection_fn
     return dataset
 
 
