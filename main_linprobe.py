@@ -34,7 +34,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from util.lars import LARS
 from util.crop import RandomResizedCrop
 
-import models_vit
+import models_vit, models_deit
 
 from engine_finetune import train_one_epoch, evaluate
 
@@ -68,9 +68,7 @@ def get_args_parser():
 
     # * Finetuning params
     parser.add_argument('--finetune', default='',
-                        help='finetune from checkpoint')
-    parser.add_argument('--freeze_params', action='store_true', default=False,
-                        help='freeze all parameters except last block, head, and norm')                        
+                        help='finetune from checkpoint')                      
     parser.add_argument('--global_pool', action='store_true')
     parser.set_defaults(global_pool=False)
     parser.add_argument('--cls_token', action='store_false', dest='global_pool',
@@ -190,16 +188,25 @@ def main(args):
         drop_last=False
     )
 
-    model = models_vit.__dict__[args.model](
-        num_classes=args.nb_classes,
-        global_pool=args.global_pool,
-    )
+    if 'deit' in args.model:
+        model = models_deit.__dict__[args.model](
+            num_classes=args.nb_classes,
+        )
+    else: # mae
+        model = models_vit.__dict__[args.model](
+            num_classes=args.nb_classes,
+            global_pool=args.global_pool,
+        )
 
     if args.finetune and not args.eval:
         checkpoint = torch.load(args.finetune, map_location='cpu')
-
         print("Load pre-trained checkpoint from: %s" % args.finetune)
-        checkpoint_model = checkpoint['model']
+        if 'msn' in args.finetune:
+            checkpoint_model = {k.replace('module.', ''): v for k, v in checkpoint['target_encoder'].items()}
+        elif 'mae' in args.finetune or 'deit' in args.finetune:
+            checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint['model'].items()}
+        else:   # dino
+            checkpoint_model = {k.replace("module.", ""): v for k, v in checkpoint.items()}
         state_dict = model.state_dict()
         for k in ['head.weight', 'head.bias']:
             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
@@ -222,24 +229,12 @@ def main(args):
         trunc_normal_(model.head.weight, std=0.01)
 
     # for linear prob only
-    # hack: revise model's head with BN
-    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)    
-    if args.freeze_params:
-        # TODO: unfreeze last n blocks instead of all but last
-        for n, p in model.named_parameters():
-            grad_flag = False
-            if n.startswith('head') or n.startswith('fc'):
-                grad_flag = True
-            elif n.startswith('blocks'):
-                n_blk = int(n.split('.')[1])
-                grad_flag = True if n_blk == len(model.blocks) - 1 else False
-            p.requires_grad_(grad_flag)
-    else:
-        # freeze all but the head
-        for _, p in model.named_parameters():
-            p.requires_grad = False
-        for _, p in model.head.named_parameters():
-            p.requires_grad = True
+    # TODO hack: revise model's head with BN
+    # model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+    for _, p in model.named_parameters():
+        p.requires_grad = False
+    for _, p in model.head.named_parameters():
+        p.requires_grad = True
 
     model.to(device)
 

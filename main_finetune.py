@@ -239,11 +239,10 @@ def main(args):
             num_classes=args.nb_classes,
             drop_path_rate=args.drop_path,
             global_pool=args.global_pool,
-        )        
+        )
 
     if args.finetune and not args.eval:
         checkpoint = torch.load(args.finetune, map_location='cpu')
-
         print("Load pre-trained checkpoint from: %s" % args.finetune)
         if 'msn' in args.finetune:
             checkpoint_model = {k.replace('module.', ''): v for k, v in checkpoint['target_encoder'].items()}
