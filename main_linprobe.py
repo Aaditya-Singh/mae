@@ -187,6 +187,7 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=False
     )
+    data_loader_val.projection_fn = dataset_val.projection_fn
 
     if 'deit' in args.model:
         model = models_deit.__dict__[args.model](
