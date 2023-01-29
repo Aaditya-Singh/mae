@@ -33,6 +33,7 @@ import util.misc as misc
 from util.datasets import build_dataset
 from util.pos_embed import interpolate_pos_embed
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
+from util.classifier import LinearClassifier
 
 import models_vit, models_deit
 
@@ -266,10 +267,18 @@ def main(args):
         if args.global_pool:
             assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
         else:
-            assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
-
-        # manually initialize fc layer
-        trunc_normal_(model.head.weight, std=2e-5)
+            if 'linear_classifier' in checkpoint:
+                # load pre-trained head if available in checkpoint
+                checkpoint_head = {k.replace('module.', ''): v for k, v in checkpoint['linear_classifier'].items()}
+                model.fc, model.norm = None, None
+                emb_dim = 384 if 'small' in args.model else 768 if 'base' in args.model else 1024
+                model.head = LinearClassifier(dim=emb_dim, num_labels=args.nb_classes, normalize=True)
+                msg = model.head.load_state_dict(checkpoint_head, strict=True)
+                print(msg)
+            else:
+                # manually initialize fc layer
+                assert set(msg.missing_keys) == {'head.weight', 'head.bias'}                
+                trunc_normal_(model.head.weight, std=2e-5)
 
     model.to(device)
 
