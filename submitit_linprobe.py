@@ -33,8 +33,8 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     # TODO: need to add this path before submitit
-    if Path(f"/srv/share4/{user}/msn/logs/").is_dir():
-        p = Path(f"/srv/share4/{user}/msn/logs/submitit/")
+    if Path(f"/srv/share4/{user}/mae/logs/").is_dir():
+        p = Path(f"/srv/share4/{user}/mae/logs/submitit/")
         p.mkdir(exist_ok=True)
         return p
     raise RuntimeError("No shared folder available")

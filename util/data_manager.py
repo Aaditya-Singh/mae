@@ -18,6 +18,8 @@ import torchvision
 from util.transforms import default_transforms
 from util.objectnet import ObjectNet
 from util.imagenetv2 import ImageNetV2
+from util.imagenet_r import ImageNetR
+from util.imagenet_a import ImageNetA
 
 import json
 IN1K_CLASS_DICT_PATH = './util/in1k_class_to_idx.json'
@@ -52,6 +54,14 @@ def init_data(
         objectnet = ObjectNet(transform, root_path)
         dataset = objectnet.get_test_dataset(image_folder)
         projection_fn = getattr(objectnet, 'project_logits', None)
+    elif 'imagenet-a' in image_folder:
+        imagenet_a = ImageNetA(transform, root_path)
+        dataset = imagenet_a.get_test_dataset()
+        projection_fn = getattr(imagenet_a, 'project_logits', None)
+    elif 'imagenet-r' in image_folder:
+        imagenet_r = ImageNetR(transform, root_path)
+        dataset = imagenet_r.get_test_dataset()
+        projection_fn = getattr(imagenet_r, 'project_logits', None)        
     else:
         dataset = ImageNet(root=root_path, image_folder=image_folder, \
             transform=transform, train=training)
