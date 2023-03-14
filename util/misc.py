@@ -319,7 +319,24 @@ def load_model(args, model_without_ddp, optimizer, loss_scaler):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+        msg = model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+        print(msg)
+        try:
+            # NOTE: L2-norm before head isn't available, to be used for evaluation only
+            head_remap_dict = {"norm.weight": "head.norm.weight", "norm.bias": "head.norm.bias", \
+                "head.weight": "head.linear.weight", "head.bias": "head.linear.bias"}
+            with torch.no_grad():
+                for n, p in model_without_ddp.named_parameters():
+                    if n not in head_remap_dict:
+                        continue
+                    k = head_remap_dict[n]
+                    v = checkpoint['model'][k]
+                    p.copy_(v)
+            print("Loaded linear classifier weights!")
+            # exit(0)
+        except RuntimeError:
+            print("Failed to load linear classifier weights")
+            pass
         print("Resume checkpoint %s" % args.resume)
         if 'optimizer' in checkpoint and 'epoch' in checkpoint and not (hasattr(args, 'eval') and args.eval):
             optimizer.load_state_dict(checkpoint['optimizer'])
