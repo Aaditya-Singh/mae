@@ -334,7 +334,7 @@ def load_model(args, model_without_ddp, optimizer, loss_scaler):
                     p.copy_(v)
             print("Loaded linear classifier weights!")
             # exit(0)
-        except RuntimeError:
+        except Exception:
             print("Failed to load linear classifier weights")
             pass
         print("Resume checkpoint %s" % args.resume)
